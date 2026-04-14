@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>32关轻松跑酷 - Neon Runner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        #gameCanvas {
+            display: block;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+        }
+
+        /* 左上角视角切换 */
+        .camera-controls {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        }
+
+        .camera-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid #00d4ff;
+            background: rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .camera-btn:hover, .camera-btn.active {
+            background: #00d4ff;
+            color: #000;
+            box-shadow: 0 0 20px #00d4ff;
+        }
+
+        /* 右上角关卡信息 */
+        .level-info {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #ff00ff;
+            border-radius: 15px;
+            padding: 15px 25px;
+            color: #fff;
+            z-index: 100;
+            min-width: 180px;
+        }
+
+        .level-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #ff00ff;
+            text-shadow: 0 0 10px #ff00ff;
+        }
+
+        .level-hint {
+            font-size: 12px;
+            color: #aaa;
+            margin-top: 5px;
+        }
+
+        /* 左下角操控圆盘 */
+        .joystick-container {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            width: 150px;
+            height: 150px;
+            z-index: 100;
+            display: none;
+        }
+
+        .joystick-container.active {
+            display: block;
+        }
+
+        .joystick-base {
+            position: absolute;
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 3px solid rgba(0, 212, 255, 0.5);
+        }
+
+        .joystick-stick {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #00d4ff 0%, #0099cc 100%);
+            border: 3px solid #fff;
+            left: 45px;
+            top: 45px;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.8);
+            transition: transform 0.1s;
+        }
+
+        /* 右下角按钮组 */
+        .action-buttons {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            display: none;
+            flex-direction: column;
+            gap: 15px;
+            z-index: 100;
+        }
+
+        .action-buttons.active {
+            display: flex;
+        }
+
+        .action-btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            border: 3px solid;
+            font-size: 28px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.6);
+        }
+
+        .action-btn.jump {
+            border-color: #00ff88;
+            color: #00ff88;
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.3);
+        }
+
+        .action-btn.jump:active, .action-btn.jump.pressed {
+            background: #00ff88;
+            color: #000;
+            transform: scale(0.95);
+        }
+
+        .action-btn.boost {
+            border-color: #ffaa00;
+            color: #ffaa00;
+            box-shadow: 0 0 15px rgba(255, 170, 0, 0.3);
+        }
+
+        .action-btn.boost:active, .action-btn.boost.pressed {
+            background: #ffaa00;
+            color: #000;
+            transform: scale(0.95);
+        }
+
+        .action-btn.dive {
+            border-color: #ff3366;
+            color: #ff3366;
+            box-shadow: 0 0 15px rgba(255, 51, 102, 0.3);
+        }
+
+        .action-btn.dive:active, .action-btn.dive.pressed {
+            background: #ff3366;
+            color: #000;
+            transform: scale(0.95);
+        }
+
+        /* 中央提示框 */
+        .center-message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            border: 3px solid #00d4ff;
+            border-radius: 20px;
+            padding: 30px 50px;
+            color: #fff;
+            font-size: 24px;
+            text-align: center;
+            z-index: 200;
+            display: none;
+            box-shadow: 0 0 40px rgba(0, 212, 255, 0.5);
+        }
+
+        .center-message.show {
+            display: block;
+            animation: popIn 0.3s ease-out;
+        }
+
+        @keyframes popIn {
+            0% { transform: translate(-50%, -50%) scale(0); }
+            100% { transform: translate(-50%, -50%) scale(1); }
+        }
+
+        /* 开始界面 */
+        .start-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 300;
+        }
+
+        .start-screen h1 {
+            font-size: 48px;
+            color: #00d4ff;
+            text-shadow: 0 0 30px #00d4ff;
+            margin-bottom: 20px;
+        }
+
+        .start-screen p {
+            color: #aaa;
+            margin-bottom: 40px;
+            font-size: 16px;
+        }
+
+        .start-btn {
+            padding: 20px 60px;
+            font-size: 24px;
+            border: 3px solid #00ff88;
+            background: transparent;
+            color: #00ff88;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s;
+            z-index: 301;
+            position: relative;
+        }
+
+        .start-btn:hover {
+            background: #00ff88;
+            color: #000;
+            box-shadow: 0 0 30px #00ff88;
+        }
+
+        .controls-hint {
+            margin-top: 30px;
+            color: #666;
+            font-size: 14px;
+            text-align: center;
+            line-height: 1.8;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- 左上角视角切换 -->
+    <div class="camera-controls" id="cameraControls" style="display: none;">
+        <button class="camera-btn active" data-view="third" title="第三人称">👤</button>
+        <button class="camera-btn" data-view="top" title="俯视">🔝</button>
+        <button class="camera-btn" data-view="side" title="侧视">👁️</button>
+    </div>
+
+    <!-- 右上角关卡信息 -->
+    <div class="level-info" id="levelInfo" style="display: none;">
+        <div class="level-number">关卡 <span id="currentLevel">1</span> / 32</div>
+        <div class="level-hint" id="levelHint">跳跃躲避障碍，到达终点！</div>
+    </div>
+
+    <!-- 左下角操控圆盘 -->
+    <div class="joystick-container" id="joystick">
+        <div class="joystick-base"></div>
+        <div class="joystick-stick" id="joystickStick"></div>
+    </div>
+
+    <!-- 右下角按钮组 -->
+    <div class="action-buttons" id="actionButtons">
+        <button class="action-btn jump" id="jumpBtn">⬆️</button>
+        <button class="action-btn boost" id="boostBtn">⚡</button>
+        <button class="action-btn dive" id="diveBtn">⬇️</button>
+    </div>
+
+    <!-- 中央提示框 -->
+    <div class="center-message" id="centerMessage"></div>
+
+    <!-- 开始界面 -->
+    <div class="start-screen" id="startScreen">
+        <h1>🏃 NEON RUNNER</h1>
+        <p>32关轻松跑酷挑战</p>
+        <button class="start-btn" id="startBtn" type="button">开始游戏</button>
+        <div class="controls-hint">
+            左下角：虚拟摇杆控制移动<br>
+            右下角：跳跃 ⬆️ | 加速 ⚡ | 前扑 ⬇️<br>
+            左上角：切换视角
+        </div>
+    </div>
+
+    <script>
+        // 游戏配置
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 设置画布大小
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // 游戏状态
+        const game = {
+            running: false,
+            currentLevel: 1,
+            camera: { x: 0, y: 0, zoom: 1, view: 'third' },
+            particles: [],
+            obstacles: [],
+            platforms: [],
+            finishLine: null,
+            stars: [],
+            collectedStars: 0
+        };
+
+        // 玩家对象
+        const player = {
+            x: 100,
+            y: 300,
+            vx: 0,
+            vy: 0,
+            width: 30,
+            height: 50,
+            speed: 5,
+            jumpPower: 15,
+            onGround: false,
+            boosting: false,
+            diving: false,
+            color: '#00d4ff',
+            trail: []
+        };
+
+        // 输入状态
+        const input = {
+            joystick: { x: 0, y: 0, active: false },
+            jump: false,
+            boost: false,
+            dive: false
+        };
+
+        // 32关配置
+        const levels = [
+            { hint: "按跳跃键跳过第一个障碍！", obstacles: 2, length: 800, difficulty: 1 },
+            { hint: "连续跳跃通过多个平台", obstacles: 3, length: 1000, difficulty: 1 },
+            { hint: "使用加速键快速通过！", obstacles: 4, length: 1200, difficulty: 1 },
+            { hint: "前扑可以滑过低矮障碍", obstacles: 4, length: 1200, difficulty: 2 },
+            { hint: "收集星星获得额外分数", obstacles: 3, length: 1000, difficulty: 2, stars: 3 },
+            { hint: "小心移动的平台", obstacles: 5, length: 1400, difficulty: 2 },
+            { hint: "组合技：跳跃+前扑", obstacles: 5, length: 1400, difficulty: 2 },
+            { hint: "加速跳跃可以跳得更远", obstacles: 6, length: 1600, difficulty: 3 },
+            { hint: "空中调整方向", obstacles: 6, length: 1600, difficulty: 3 },
+            { hint: "第10关！节奏很重要", obstacles: 7, length: 1800, difficulty: 3 },
+            { hint: "连续加速冲刺", obstacles: 7, length: 1800, difficulty: 3 },
+            { hint: "精准跳跃挑战", obstacles: 8, length: 2000, difficulty: 3 },
+            { hint: "收集所有星星", obstacles: 6, length: 1800, difficulty: 3, stars: 5 },
+            { hint: "障碍密集区", obstacles: 9, length: 2200, difficulty: 4 },
+            { hint: "高低起伏地形", obstacles: 8, length: 2000, difficulty: 4 },
+            { hint: "第15关！保持冷静", obstacles: 10, length: 2400, difficulty: 4 },
+            { hint: "极限跳跃", obstacles: 10, length: 2400, difficulty: 4 },
+            { hint: "障碍马拉松", obstacles: 11, length: 2600, difficulty: 4 },
+            { hint: "空中特技", obstacles: 9, length: 2200, difficulty: 4 },
+            { hint: "第20关！你已经很厉害了", obstacles: 12, length: 2800, difficulty: 5 },
+            { hint: "连续前扑", obstacles: 11, length: 2600, difficulty: 5 },
+            { hint: "超级加速模式", obstacles: 12, length: 2800, difficulty: 5 },
+            { hint: "狭窄通道", obstacles: 10, length: 2400, difficulty: 5 },
+            { hint: "反弹跳跃", obstacles: 13, length: 3000, difficulty: 5 },
+            { hint: "第25关！四分之一完成", obstacles: 14, length: 3200, difficulty: 5 },
+            { hint: "障碍迷宫", obstacles: 13, length: 3000, difficulty: 6 },
+            { hint: "终极跳跃", obstacles: 15, length: 3400, difficulty: 6 },
+            { hint: "时间挑战", obstacles: 14, length: 3200, difficulty: 6 },
+            { hint: "完美跑酷", obstacles: 16, length: 3600, difficulty: 6 },
+            { hint: "第30关！冲刺阶段", obstacles: 17, length: 3800, difficulty: 6 },
+            { hint: "大师级挑战", obstacles: 18, length: 4000, difficulty: 7 },
+            { hint: "终极考验", obstacles: 20, length: 4200, difficulty: 7 },
+            { hint: "恭喜！你完成了所有32关！", obstacles: 15, length: 3500, difficulty: 5, victory: true }
+        ];
+
+        // 初始化关卡
+        function initLevel(levelNum) {
+            const level = levels[levelNum - 1] || levels[0];
+            game.obstacles = [];
+            game.platforms = [];
+            game.stars = [];
+            game.collectedStars = 0;
+
+            player.x = 100;
+            player.y = 300;
+            player.vx = 0;
+            player.vy = 0;
+            player.trail = [];
+
+            const groundY = 400;
+            for (let i = 0; i < level.length / 100; i++) {
+                game.platforms.push({
+                    x: i * 100,
+                    y: groundY,
+                    width: 100,
+                    height: 200,
+                    type: 'ground'
+                });
+            }
+
+            const obsCount = level.obstacles;
+            for (let i = 0; i < obsCount; i++) {
+                const x = 300 + (level.length - 400) * (i / (obsCount - 1));
+                const type = Math.random();
+
+                if (type < 0.33) {
+                    game.obstacles.push({
+                        x: x,
+                        y: groundY - 60,
+                        width: 40,
+                        height: 60,
+                        type: 'high',
+                        color: '#ff3366'
+                    });
+                } else if (type < 0.66) {
+                    game.obstacles.push({
+                        x: x,
+                        y: groundY - 30,
+                        width: 50,
+                        height: 30,
+                        type: 'low',
+                        color: '#ffaa00'
+                    });
+                } else {
+                    game.platforms.push({
+                        x: x,
+                        y: groundY - 100 - Math.random() * 100,
+                        width: 80,
+                        height: 20,
+                        type: 'moving',
+                        moveRange: 50,
+                        moveSpeed: 2,
+                        initialX: x
+                    });
+                }
+            }
+
+            if (level.stars) {
+                for (let i = 0; i < level.stars; i++) {
+                    game.stars.push({
+                        x: 200 + Math.random() * (level.length - 300),
+                        y: groundY - 150 - Math.random() * 100,
+                        size: 15,
+                        collected: false,
+                        rotation: 0
+                    });
+                }
+            }
+
+            game.finishLine = {
+                x: level.length,
+                y: groundY - 100,
+                width: 60,
+                height: 100
+            };
+
+            document.getElementById('currentLevel').textContent = levelNum;
+            document.getElementById('levelHint').textContent = level.hint;
+            showMessage(`第 ${levelNum} 关`);
+        }
+
+        function showMessage(text, duration = 2000) {
+            const msg = document.getElementById('centerMessage');
+            msg.textContent = text;
+            msg.classList.add('show');
+            setTimeout(() => {
+                msg.classList.remove('show');
+            }, duration);
+        }
+
+        function updatePhysics() {
+            if (!game.running) return;
+
+            const gravity = 0.8;
+            const friction = 0.9;
+            const groundY = 400;
+
+            if (input.joystick.active) {
+                player.vx += input.joystick.x * 0.5;
+            }
+
+            const maxSpeed = input.boost ? player.speed * 2 : player.speed;
+            player.vx = Math.max(-maxSpeed, Math.min(maxSpeed, player.vx));
+            player.vx *= friction;
+
+            if (input.jump && player.onGround) {
+                player.vy = -player.jumpPower;
+                player.onGround = false;
+                createParticles(player.x, player.y + player.height, 5, '#00ff88');
+            }
+
+            if (input.dive && !player.onGround) {
+                player.diving = true;
+                player.vy = 8;
+                player.vx += (player.vx > 0 ? 5 : -5);
+                player.height = 25;
+            } else {
+                player.diving = false;
+                player.height = 50;
+            }
+
+            player.vy += gravity;
+            player.x += player.vx;
+            player.y += player.vy;
+
+            if (player.y + player.height > groundY) {
+                player.y = groundY - player.height;
+                player.vy = 0;
+                player.onGround = true;
+            }
+
+            game.platforms.forEach(platform => {
+                if (platform.type === 'moving') {
+                    platform.x = platform.initialX + Math.sin(Date.now() / 1000 * platform.moveSpeed) * platform.moveRange;
+                }
+
+                if (player.x + player.width > platform.x && 
+                    player.x < platform.x + platform.width &&
+                    player.y + player.height > platform.y &&
+                    player.y + player.height < platform.y + 30 &&
+                    player.vy > 0) {
+                    player.y = platform.y - player.height;
+                    player.vy = 0;
+                    player.onGround = true;
+
+                    if (platform.type === 'moving') {
+                        player.x += Math.cos(Date.now() / 1000 * platform.moveSpeed) * platform.moveRange * 0.1;
+                    }
+                }
+            });
+
+            game.obstacles.forEach(obs => {
+                if (player.x + player.width > obs.x && 
+                    player.x < obs.x + obs.width &&
+                    player.y + player.height > obs.y &&
+                    player.y < obs.y + obs.height) {
+
+                    if (obs.type === 'low' && player.diving) {
+                        // 前扑通过低障碍
+                    } else {
+                        player.x = 100;
+                        player.y = 300;
+                        player.vx = 0;
+                        player.vy = 0;
+                        showMessage("撞到了！重新开始");
+                        createParticles(player.x, player.y, 10, '#ff3366');
+                    }
+                }
+            });
+
+            game.stars.forEach(star => {
+                if (!star.collected) {
+                    const dx = player.x + player.width/2 - star.x;
+                    const dy = player.y + player.height/2 - star.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+
+                    if (dist < 30) {
+                        star.collected = true;
+                        game.collectedStars++;
+                        createParticles(star.x, star.y, 8, '#ffdd00');
+                    }
+                }
+                star.rotation += 0.05;
+            });
+
+            if (player.x > game.finishLine.x) {
+                levelComplete();
+            }
+
+            game.particles = game.particles.filter(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.3;
+                p.life--;
+                return p.life > 0;
+            });
+
+            player.trail.push({ x: player.x + player.width/2, y: player.y + player.height/2 });
+            if (player.trail.length > 20) player.trail.shift();
+
+            updateCamera();
+        }
+
+        function updateCamera() {
+            const targetX = player.x - canvas.width / 2;
+            const targetY = player.y - canvas.height / 2;
+
+            switch(game.camera.view) {
+                case 'third':
+                    game.camera.x += (targetX - game.camera.x) * 0.1;
+                    game.camera.y += (targetY - game.camera.y) * 0.1;
+                    game.camera.zoom = 1;
+                    break;
+                case 'top':
+                    game.camera.x += (targetX - game.camera.x) * 0.1;
+                    game.camera.y = -200;
+                    game.camera.zoom = 0.7;
+                    break;
+                case 'side':
+                    game.camera.x = player.x - 300;
+                    game.camera.y += (targetY - game.camera.y) * 0.1;
+                    game.camera.zoom = 1;
+                    break;
+            }
+        }
+
+        function createParticles(x, y, count, color) {
+            for (let i = 0; i < count; i++) {
+                game.particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8,
+                    life: 30,
+                    color: color
+                });
+            }
+        }
+
+        function render() {
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.strokeStyle = 'rgba(0, 212, 255, 0.1)';
+            ctx.lineWidth = 1;
+            const gridSize = 50;
+            const offsetX = -game.camera.x % gridSize;
+            const offsetY = -game.camera.y % gridSize;
+
+            for (let x = offsetX; x < canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = offsetY; y < canvas.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            ctx.save();
+            ctx.translate(-game.camera.x, -game.camera.y);
+            ctx.scale(game.camera.zoom, game.camera.zoom);
+
+            game.platforms.forEach(platform => {
+                if (platform.type === 'ground') {
+                    const gradient = ctx.createLinearGradient(platform.x, platform.y, platform.x, platform.y + 100);
+                    gradient.addColorStop(0, '#1a1a2e');
+                    gradient.addColorStop(1, '#0f0f1a');
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+
+                    ctx.strokeStyle = '#00d4ff';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(platform.x, platform.y);
+                    ctx.lineTo(platform.x + platform.width, platform.y);
+                    ctx.stroke();
+                } else {
+                    ctx.fillStyle = '#ff00ff';
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = '#ff00ff';
+                    ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+                    ctx.shadowBlur = 0;
+                }
+            });
+
+            game.obstacles.forEach(obs => {
+                ctx.fillStyle = obs.color;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = obs.color;
+
+                if (obs.type === 'high') {
+                    ctx.beginPath();
+                    ctx.moveTo(obs.x, obs.y + obs.height);
+                    ctx.lineTo(obs.x + obs.width/2, obs.y);
+                    ctx.lineTo(obs.x + obs.width, obs.y + obs.height);
+                    ctx.closePath();
+                    ctx.fill();
+                } else {
+                    ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+                }
+                ctx.shadowBlur = 0;
+            });
+
+            game.stars.forEach(star => {
+                if (!star.collected) {
+                    ctx.save();
+                    ctx.translate(star.x, star.y);
+                    ctx.rotate(star.rotation);
+
+                    ctx.fillStyle = '#ffdd00';
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = '#ffdd00';
+
+                    ctx.beginPath();
+                    for (let i = 0; i < 5; i++) {
+                        const angle = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+                        const x = Math.cos(angle) * star.size;
+                        const y = Math.sin(angle) * star.size;
+                        if (i === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.restore();
+                }
+            });
+
+            if (game.finishLine) {
+                const fx = game.finishLine.x;
+                const fy = game.finishLine.y;
+
+                ctx.strokeStyle = '#00ff88';
+                ctx.lineWidth = 5;
+                ctx.shadowBlur = 30;
+                ctx.shadowColor = '#00ff88';
+
+                ctx.beginPath();
+                ctx.moveTo(fx, fy + 100);
+                ctx.lineTo(fx, fy);
+                ctx.lineTo(fx + 60, fy);
+                ctx.lineTo(fx + 60, fy + 100);
+                ctx.stroke();
+
+                ctx.fillStyle = '#00ff88';
+                ctx.font = 'bold 20px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('终点', fx + 30, fy - 20);
+                ctx.shadowBlur = 0;
+            }
+
+            if (player.trail.length > 1) {
+                ctx.strokeStyle = 'rgba(0, 212, 255, 0.5)';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                player.trail.forEach((point, i) => {
+                    if (i === 0) ctx.moveTo(point.x, point.y);
+                    else ctx.lineTo(point.x, point.y);
+                });
+                ctx.stroke();
+            }
+
+            ctx.fillStyle = player.color;
+            ctx.shadowBlur = 25;
+            ctx.shadowColor = player.color;
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+
+            ctx.fillStyle = '#fff';
+            ctx.shadowBlur = 0;
+            const eyeY = player.y + (player.diving ? 5 : 10);
+            ctx.fillRect(player.x + 5, eyeY, 6, 6);
+            ctx.fillRect(player.x + 19, eyeY, 6, 6);
+
+            game.particles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life / 30;
+                ctx.fillRect(p.x, p.y, 4, 4);
+            });
+            ctx.globalAlpha = 1;
+
+            ctx.restore();
+
+            if (game.collectedStars > 0) {
+                ctx.fillStyle = '#ffdd00';
+                ctx.font = 'bold 24px Arial';
+                ctx.textAlign = 'left';
+                ctx.fillText(`⭐ ${game.collectedStars}`, 20, 120);
+            }
+        }
+
+        function levelComplete() {
+            if (game.currentLevel < 32) {
+                game.currentLevel++;
+                initLevel(game.currentLevel);
+            } else {
+                showMessage("🎉 恭喜通关！你完成了所有32关！", 5000);
+                setTimeout(() => {
+                    game.currentLevel = 1;
+                    initLevel(1);
+                }, 5000);
+            }
+        }
+
+        function gameLoop() {
+            updatePhysics();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 摇杆控制
+        const joystick = document.getElementById('joystick');
+        const stick = document.getElementById('joystickStick');
+
+        function handleJoystickStart(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const touch = e.touches ? e.touches[0] : e;
+            const rect = joystick.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+
+            input.joystick.active = true;
+            updateJoystick(touch.clientX, touch.clientY, centerX, centerY);
+        }
+
+        function handleJoystickMove(e) {
+            if (!input.joystick.active) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const touch = e.touches ? e.touches[0] : e;
+            const rect = joystick.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+
+            updateJoystick(touch.clientX, touch.clientY, centerX, centerY);
+        }
+
+        function handleJoystickEnd(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            input.joystick.active = false;
+            input.joystick.x = 0;
+            input.joystick.y = 0;
+            stick.style.transform = 'translate(0, 0)';
+        }
+
+        function updateJoystick(clientX, clientY, centerX, centerY) {
+            let dx = clientX - centerX;
+            let dy = clientY - centerY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const maxDistance = 45;
+
+            if (distance > maxDistance) {
+                dx = (dx / distance) * maxDistance;
+                dy = (dy / distance) * maxDistance;
+            }
+
+            stick.style.transform = `translate(${dx}px, ${dy}px)`;
+            input.joystick.x = dx / maxDistance;
+            input.joystick.y = dy / maxDistance;
+        }
+
+        joystick.addEventListener('touchstart', handleJoystickStart, { passive: false });
+        joystick.addEventListener('touchmove', handleJoystickMove, { passive: false });
+        joystick.addEventListener('touchend', handleJoystickEnd, { passive: false });
+        joystick.addEventListener('mousedown', handleJoystickStart);
+        window.addEventListener('mousemove', (e) => {
+            if (input.joystick.active) handleJoystickMove(e);
+        });
+        window.addEventListener('mouseup', handleJoystickEnd);
+
+        // 动作按钮
+        const jumpBtn = document.getElementById('jumpBtn');
+        const boostBtn = document.getElementById('boostBtn');
+        const diveBtn = document.getElementById('diveBtn');
+
+        function setupButton(btn, action) {
+            const start = (e) => { 
+                e.preventDefault(); 
+                e.stopPropagation();
+                input[action] = true; 
+                btn.classList.add('pressed');
+            };
+            const end = (e) => { 
+                e.preventDefault(); 
+                e.stopPropagation();
+                input[action] = false; 
+                btn.classList.remove('pressed');
+            };
+
+            btn.addEventListener('touchstart', start, { passive: false });
+            btn.addEventListener('touchend', end, { passive: false });
+            btn.addEventListener('touchcancel', end, { passive: false });
+            btn.addEventListener('mousedown', start);
+            btn.addEventListener('mouseup', end);
+            btn.addEventListener('mouseleave', end);
+        }
+
+        setupButton(jumpBtn, 'jump');
+        setupButton(boostBtn, 'boost');
+        setupButton(diveBtn, 'dive');
+
+        // 视角切换
+        document.querySelectorAll('.camera-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                document.querySelectorAll('.camera-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                game.camera.view = btn.dataset.view;
+            });
+        });
+
+        // 键盘控制
+        document.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case 'ArrowLeft': case 'a': input.joystick.x = -1; input.joystick.active = true; break;
+                case 'ArrowRight': case 'd': input.joystick.x = 1; input.joystick.active = true; break;
+                case ' ': input.jump = true; break;
+                case 'Shift': input.boost = true; break;
+                case 'Control': input.dive = true; break;
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            switch(e.key) {
+                case 'ArrowLeft': case 'a': 
+                case 'ArrowRight': case 'd': 
+                    input.joystick.x = 0; 
+                    if (!input.joystick.y) input.joystick.active = false; 
+                    break;
+                case ' ': input.jump = false; break;
+                case 'Shift': input.boost = false; break;
+                case 'Control': input.dive = false; break;
+            }
+        });
+
+        // 开始游戏
+        function startGame() {
+            console.log('Starting game...');
+            document.getElementById('startScreen').style.display = 'none';
+            document.getElementById('joystick').classList.add('active');
+            document.getElementById('actionButtons').classList.add('active');
+            document.getElementById('cameraControls').style.display = 'flex';
+            document.getElementById('levelInfo').style.display = 'block';
+            game.running = true;
+            initLevel(1);
+        }
+
+        const startBtn = document.getElementById('startBtn');
+
+        // 使用 onclick 属性确保事件绑定
+        startBtn.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            startGame();
+            return false;
+        };
+
+        startBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            startGame();
+        }, { passive: false });
+
+        startBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        }, { passive: false });
+
+        // 防止页面滚动
+        document.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+        }, { passive: false });
+
+        document.addEventListener('gesturestart', (e) => e.preventDefault());
+        document.addEventListener('gesturechange', (e) => e.preventDefault());
+        document.addEventListener('gestureend', (e) => e.preventDefault());
+
+        // 启动游戏循环
+        gameLoop();
+        console.log('Game initialized, waiting for start...');
+    </script>
+</body>
+</html>
